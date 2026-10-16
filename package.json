@@ -1,0 +1,36 @@
+{
+  "name": "ozania-io",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "export:preview": "npm run build && node scripts/export-preview.mjs",
+    "check": "tsc -b",
+    "test:e2e": "node scripts/verify.mjs",
+    "test:preview": "node scripts/verify-preview.mjs"
+  },
+  "dependencies": {
+    "@fontsource-variable/manrope": "^5.2.8",
+    "@fontsource-variable/space-grotesk": "^5.2.10",
+    "@phosphor-icons/react": "^2.1.10",
+    "gsap": "^3.14.2",
+    "lenis": "^1.3.17",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-router-dom": "^7.18.4"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "^5.1.0",
+    "axe-core": "^4.11.0",
+    "playwright": "^1.56.0",
+    "sharp": "^0.34.5",
+    "typescript": "~5.9.3",
+    "vite": "^7.2.2"
+  }
+}

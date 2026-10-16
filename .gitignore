@@ -1,0 +1,12 @@
+node_modules/
+dist/
+exports/
+.shots/
+*.tsbuildinfo
+*.local
+.DS_Store
+.vercel/
+.env
+.env.*
+!.env.example
+assets/originals/rejected-*
