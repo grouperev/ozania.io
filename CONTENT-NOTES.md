@@ -13,7 +13,7 @@ What the site says, what is confirmed, and what still needs a decision before pu
 
 | Topic | Current treatment on the site | Needed before launch |
 | --- | --- | --- |
-| Contact recipient | No address anywhere. The form builds a local draft (copy/download). `VITE_CONTACT_EMAIL` is empty. | The ozania.io inbox address, then decide on draft-only or direct sending (`VITE_CONTACT_DELIVERY=api` plus `CONTACT_TO_EMAIL`, `CONTACT_FROM_EMAIL`, `RESEND_API_KEY` in secure settings). |
+| Contact recipient | Confirmed on 2026-10-16: **contact@ozania.com**. Not enabled: the site is a showcase for now, so the form stays in local draft mode (copy/download) and `VITE_CONTACT_EMAIL` is empty. | When messaging is wanted: set `VITE_CONTACT_EMAIL` (mailto button) or direct sending (`VITE_CONTACT_DELIVERY=api`, `CONTACT_TO_EMAIL=contact@ozania.com`, a verified `CONTACT_FROM_EMAIL`, `RESEND_API_KEY` in Vercel settings), and update the privacy page. |
 | Legal entity, address, registration, publisher | Not shown. The privacy page says it will be completed before publication. | Legal name, address, registration number, publication director, host. |
 | Data controller | Privacy page says contact details will be added once confirmed. | Name and contact for data-protection requests. |
 | Hosting provider | Privacy page says it will be named at public launch. | Provider and region. |
