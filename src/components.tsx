@@ -4,10 +4,10 @@ import { ArrowUpRight, ArrowUp, List, MagnifyingGlass, Plus } from '@phosphor-ic
 import { searchIndex, company } from './data';
 
 export const nav = [
-  { label: 'Expertise Odoo', to: '/expertise-odoo' },
-  { label: 'Accompagnement', to: '/accompagnement' },
-  { label: 'Vos enjeux', to: '/vos-enjeux' },
+  { label: 'La plateforme', to: '/plateforme' },
+  { label: 'Tarifs', to: '/tarifs' },
   { label: 'À propos', to: '/a-propos' },
+  { label: 'Contact', to: '/contact' },
 ];
 
 export function Action({ to = '/contact', children = 'Parlons de votre projet', variant = 'primary', className = '' }: { to?: string; children?: ReactNode; variant?: 'primary' | 'outline' | 'light'; className?: string }) {
@@ -21,7 +21,7 @@ export function TextLink({ to, children }: { to: string; children: ReactNode }) 
 /** Supplied group mark (luminance mask) followed by a typographic ".io" suffix. */
 export function Brand({ light = false }: { light?: boolean }) {
   return (
-    <Link to="/" className={`brand ${light ? 'brand-light' : ''}`} aria-label="ozania.io, accueil">
+    <Link to="/" className={`brand ${light ? 'brand-light' : ''}`} aria-label="Ozania.io, accueil">
       <span className="brand-mark" aria-hidden="true" />
       <span className="brand-suffix" aria-hidden="true">.io</span>
     </Link>
@@ -81,14 +81,14 @@ function SearchDialog({ open, close }: { open: boolean; close: () => void }) {
     if (!terms.length) return searchIndex.filter((entry) => entry.kind === 'Page');
     return searchIndex.filter((entry) => { const haystack = normalize(`${entry.title} ${entry.description} ${entry.kind}`); return terms.every((term) => haystack.includes(term)); }).slice(0, 12);
   }, [query]);
-  const suggestions = ['Stock', 'Migration', 'Formation', 'Facturation'];
+  const suggestions = ['Sauvegardes', 'Staging', 'Agency', 'Odoo.sh'];
   return (
     <Modal open={open} close={close} title="Rechercher sur le site" className="search-modal">
       <form role="search" onSubmit={(event) => { event.preventDefault(); if (results[0]) { close(); navigate(results[0].path); } }}>
         <label className="search-field">
           <MagnifyingGlass size={24} aria-hidden="true" />
-          <span className="sr-only">Rechercher une page, une application Odoo ou une étape</span>
-          <input ref={input} autoFocus type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Stock, migration, formation…" aria-describedby={countId} autoComplete="off" onKeyDown={(event) => { if (event.key === 'Escape') { event.preventDefault(); close(); } }} />
+          <span className="sr-only">Rechercher une page, une fonctionnalité, un plan ou une question</span>
+          <input ref={input} autoFocus type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Sauvegardes, staging, tarifs…" aria-describedby={countId} autoComplete="off" onKeyDown={(event) => { if (event.key === 'Escape') { event.preventDefault(); close(); } }} />
         </label>
       </form>
       <p className="search-count" id={countId} role="status" aria-live="polite">
@@ -145,21 +145,25 @@ export function Header() {
         </nav>
         <div className="header-actions">
           <button type="button" className="icon-button" onClick={() => setSearch(true)} aria-label="Rechercher sur le site" aria-haspopup="dialog"><MagnifyingGlass size={21} aria-hidden="true" /></button>
-          <Action className="header-cta">Parlons-en</Action>
+          <a className="header-login" href={company.consoleUrl}>Se connecter<span className="sr-only"> à la console</span></a>
+          <Action className="header-cta" to="/contact?offre=discovery">Compte gratuit</Action>
           <button type="button" className="icon-button mobile-menu-toggle" aria-label="Ouvrir le menu" aria-haspopup="dialog" aria-expanded={menu} onClick={() => setMenu(true)}><List size={25} aria-hidden="true" /></button>
         </div>
       </header>
       <Modal open={menu} close={() => setMenu(false)} title="Menu" className="menu-modal">
         <nav aria-label="Navigation mobile">
           <ul>
-            {[{ label: 'Accueil', to: '/' }, ...nav, { label: 'Contact', to: '/contact' }].map((item, index) => (
+            {[{ label: 'Accueil', to: '/' }, ...nav].map((item, index) => (
               <li key={item.to} style={{ '--i': index } as CSSProperties}>
                 <NavLink to={item.to} end onClick={() => setMenu(false)}><span>{item.label}</span><ArrowUpRight size={24} aria-hidden="true" /></NavLink>
               </li>
             ))}
           </ul>
         </nav>
-        <p className="menu-note">Intégration Odoo pour les entreprises.<br />Une société du groupe {company.group}.</p>
+        <div className="menu-note">
+          <a className="button button-primary" href={company.consoleUrl}><span>Se connecter à la console</span><ArrowUpRight size={20} aria-hidden="true" /></a>
+          <p>La console DevOps pour Odoo.<br />Une société du groupe {company.group}.</p>
+        </div>
       </Modal>
       <SearchDialog open={search} close={() => setSearch(false)} />
     </>
@@ -172,7 +176,7 @@ export function Footer() {
       <div className="footer-top">
         <div className="footer-brand">
           <Brand light />
-          <p>Odoo, à la mesure de votre entreprise.<br />Une société du groupe {company.group}.</p>
+          <p>La console DevOps pour Odoo.<br />Une société du groupe {company.group}.</p>
         </div>
         <nav className="footer-links" aria-label="Pages du site">
           <p>Le site</p>
@@ -180,15 +184,22 @@ export function Footer() {
         </nav>
         <div className="footer-links">
           <p>Commencer</p>
-          <Link to="/vos-enjeux#selecteur">Composer un périmètre</Link>
-          <Link to="/contact">Préparer une demande</Link>
+          <Link to="/contact?offre=discovery">Compte Discovery gratuit</Link>
+          <Link to="/tarifs#trouver">Trouver mon plan</Link>
+          <a href={company.consoleUrl}>Se connecter à la console</a>
           <Link to="/confidentialite">Confidentialité</Link>
+        </div>
+        <div className="footer-links">
+          <p>Nous joindre</p>
+          <a href={`mailto:${company.email}`}>{company.email}</a>
+          <a href={company.phoneHref}>{company.phone}</a>
+          <span className="footer-small">Support en {company.languages}</span>
         </div>
       </div>
       <div className="footer-word" aria-hidden="true" data-word="ozania.io" />
       <div className="footer-bottom">
-        <span>© {new Date().getFullYear()} ozania.io</span>
-        <span>Odoo est une marque d’Odoo S.A. ozania.io est une société indépendante d’Odoo S.A.</span>
+        <span>© {new Date().getFullYear()} Ozania.io</span>
+        <span>Odoo est une marque d’Odoo S.A. Ozania.io est indépendant d’Odoo S.A.</span>
         <button type="button" onClick={() => { window.dispatchEvent(new Event('oz:top')); window.scrollTo({ top: 0 }); document.querySelector<HTMLElement>('.site-header .brand')?.focus(); }}>Retour en haut<ArrowUp size={16} aria-hidden="true" /></button>
       </div>
     </footer>
@@ -227,12 +238,12 @@ export function Faq({ items, title = 'Les questions qui reviennent.' }: { items:
   );
 }
 
-export function Closing({ title = <>Et si votre Odoo<br />commençait par une conversation ?</>, to = '/contact', label = 'Préparer ma demande' }: { title?: ReactNode; to?: string; label?: string }) {
+export function Closing({ title = <>Prêt à rendre votre<br />infrastructure efficace ?</>, text = 'Créez votre compte Discovery gratuit, et passez en production quand vous êtes prêt.', to = '/contact', label = 'Nous contacter' }: { title?: ReactNode; text?: string; to?: string; label?: string }) {
   return (
     <section className="closing">
       <h2 data-reveal>{title}</h2>
       <div className="closing-side">
-        <p>Décrivez votre activité et ce que vous aimeriez simplifier. Nous partirons de là.</p>
+        <p>{text}</p>
         <Link className="closing-orb" to={to}><ArrowUpRight size={44} weight="light" aria-hidden="true" /><span>{label}</span></Link>
       </div>
     </section>

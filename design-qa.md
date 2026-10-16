@@ -1,8 +1,56 @@
-# Design QA · ozania.io
+# Design QA · Ozania.io
 
-Browser acceptance run with the web-design-engineer protocol. Every result below comes from a real Chromium render of the production build (`vite build` + `vite preview`), not from code inspection.
+## Version 2 (2026-10-16): DevOps console content
 
-## Scope
+The site was re-scoped from an "Odoo integration consultancy" (v1, wrong) to the real product: the Ozania.io DevOps console for Odoo. Results below are from real Chromium renders of the production build (`vite build` + `vite preview` at http://localhost:4181), with `scripts/verify.mjs` (Playwright 1.64, Chromium headless shell 1234) and manual inspection in the desktop browser pane at 1440, 390 and 320px.
+
+### Automated pass (final run, `.shots/verify-v2-final.log`): 18 / 18
+
+| # | Check | Result |
+| --- | --- | --- |
+| 1 | Direct loads of `/`, `/plateforme`, `/tarifs`, `/a-propos`, `/contact`, `/confidentialite`, unknown route: 200, one h1, unique titles, no console or network errors, all images loaded (hero console window, 6 console screenshots) | PASS |
+| 2 | No horizontal overflow at 1440, 390, 320 on every route | PASS |
+| 3 | Full-page screenshots, 3 widths × 7 routes, plus home folds | PASS |
+| 4 | axe-core wcag2a/aa + 21a/aa | PASS, 0 violations |
+| 5 | Keyboard: skip link first, visible 3px focus on every stop | PASS |
+| 6 | Mobile menu dialog: open, Escape returns focus, link navigates and closes | PASS |
+| 7 | History back/forward | PASS |
+| 8 | Search: results for "staging", empty state, suggestions, Escape, Ctrl/⌘ K | PASS |
+| 9 | Old v1 routes redirect | PASS |
+| 10 | Plan finder: Integrator / Discovery / Solo / Agency rules, environment chips, keyboard radios and switch | PASS |
+| 11 | Finder → contact: plan and hosting preselected | PASS |
+| 12 | Contact: details shown, validation, review, draft result ("prête, pas encore envoyée"), mailto to contact@ozania.com, `.txt` download, copy, no storage or cookies | PASS |
+| 13 | Pricing: 4 plan cards, comparison table, 17 FAQ entries | PASS |
+| 14 | Header "Se connecter" href and "Compte gratuit" CTA | PASS |
+| 15 | Platform sticky index updates `aria-current` | PASS |
+| 16 | FAQ by click and Enter | PASS |
+| 17 | Reduced motion: hero visible at once, all reveals at opacity 1 | PASS |
+| 18 | First paint: h1 visible within 300 ms | PASS |
+
+Standalone export (`scripts/verify-preview.mjs`): 7 / 7 (homepage without JavaScript, hash navigation, finder → contact carry, no console errors, zero http(s) requests). Size 2.86 MB.
+
+### Issues found and repaired in v2
+
+| Found by | Issue | Fix |
+| --- | --- | --- |
+| User | Content described an integration consultancy; ozania.io is a DevOps console | Full content rewrite from the company PDF and www.ozania.io |
+| User | Workshop photo (paper diagram) illogical for a digital service and low quality | Removed with the stockroom and parcel photos; three new Magnific Nano Banana 2.1 (2K) scenes of on-screen work, plus real console screenshots |
+| Manual | One new render showed banding/dithering in a backlit window | Regenerated, then cropped to the clean right two thirds |
+| Manual, 1440 | Longer hero headline pushed the photo below the fold | Home h1 scale reduced |
+| Manual, 1440 | Feature index titles squeezed by a label column; screenshots small in a tall frame | Label stacked above title; squarer visual frame |
+| Harness, 390/320 | `/tarifs` page widened to 669px by screen-reader labels escaping the table scroller | `position: relative` on the scroll container |
+| axe | Problem numbers 2.52:1 on lavender; inactive environment chips 3.82:1 | Darker soft-violet and muted tones |
+
+### Visual notes
+
+- Photography only carries people; product capabilities are shown with real console screenshots in framed lavender panels, captioned as such.
+- Crops checked at 1440, 390 and 320: both faces visible in the mobile hero crop; the console window drops below the photo on phones.
+
+---
+
+## Version 1 (superseded)
+
+### Scope
 
 - Environment: production build served by `vite preview` at `http://localhost:4181`. Chromium headless shell 1234 through Playwright 1.64 (`scripts/verify.mjs`), plus manual inspection in the Claude desktop browser pane.
 - Viewports: 1440×900 desktop, 390×844 phone, 320×640/844 narrow phone.

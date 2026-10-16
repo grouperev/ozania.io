@@ -1,23 +1,22 @@
 import { useEffect, useRef } from 'react';
-import { BrowserRouter, HashRouter, Route, Routes, useLocation } from 'react-router-dom';
+import { BrowserRouter, HashRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import Lenis from 'lenis';
 import { Header, Footer } from './components';
 import { ScopeProvider } from './Selector';
-import { HomePage, ExpertisePage, JourneyPage, NeedsPage, AboutPage, PrivacyPage, NotFoundPage } from './pages';
+import { HomePage, PlatformPage, PricingPage, AboutPage, PrivacyPage, NotFoundPage } from './pages';
 import ContactPage from './ContactPage';
 
 gsap.registerPlugin(ScrollTrigger);
 
 const meta: Record<string, [string, string]> = {
-  '/': ['Intégration Odoo pour les entreprises', 'ozania.io accompagne les entreprises dans l’intégration d’Odoo : cadrage, paramétrage, migration, connexions, formation et suivi.'],
-  '/expertise-odoo': ['Expertise Odoo', 'Cadrage, paramétrage, migration de données, connexions, formation et suivi : ce que recouvre l’intégration d’Odoo avec ozania.io.'],
-  '/accompagnement': ['Notre accompagnement', 'Comprendre, concevoir, construire, démarrer, faire vivre : les étapes d’un projet Odoo mené avec vos équipes.'],
-  '/vos-enjeux': ['Vos enjeux', 'Sélectionnez vos besoins et voyez quelles applications Odoo peuvent les relier, puis préparez votre demande.'],
-  '/a-propos': ['À propos', 'ozania.io, société du groupe Ozania dédiée à l’intégration d’Odoo pour les entreprises.'],
-  '/contact': ['Contact', 'Préparez une demande de projet Odoo à partir de vos besoins.'],
-  '/confidentialite': ['Confidentialité', 'Comment le site ozania.io traite les informations saisies dans le formulaire.'],
+  '/': ['La console DevOps pour Odoo', 'Ozania.io est la console DevOps qui vous permet de déployer, valider et orchestrer tous vos environnements Odoo depuis une seule interface.'],
+  '/plateforme': ['La plateforme', 'Cloud, VPS ou hébergement géré : déploiement, staging, sauvegardes, surveillance, bibliothèque de modules, accès délégué et marque blanche pour Odoo.'],
+  '/tarifs': ['Tarifs', 'Discovery gratuit 90 jours, Solo, Integrator et Agency : un abonnement fixe, indépendant du nombre d’utilisateurs.'],
+  '/a-propos': ['À propos', 'Ozania.io, la couche DevOps d’Odoo au sein du groupe Ozania, construite par une équipe DevOps depuis 20 ans.'],
+  '/contact': ['Contact', 'Demandez votre compte Ozania.io ou posez votre question à l’équipe.'],
+  '/confidentialite': ['Confidentialité', 'Comment le site Ozania.io traite les informations saisies dans le formulaire.'],
 };
 
 function Site() {
@@ -72,7 +71,7 @@ function Site() {
   // Titles, scroll restoration and focus on route change.
   useEffect(() => {
     const [name, description] = meta[location.pathname] || ['Page introuvable', 'Cette page n’existe pas ou a été déplacée.'];
-    document.title = location.pathname === '/' ? `ozania.io · ${name}` : `${name} · ozania.io`;
+    document.title = location.pathname === '/' ? `Ozania.io · ${name}` : `${name} · Ozania.io`;
     document.querySelector('meta[name="description"]')?.setAttribute('content', description);
     if (!location.hash) { window.dispatchEvent(new Event('oz:top')); window.scrollTo(0, 0); }
     const timeout = window.setTimeout(() => {
@@ -116,10 +115,12 @@ function Site() {
       <main id="main" ref={main} tabIndex={-1}>
         <Routes>
           <Route path="/" element={<HomePage />} />
-          <Route path="/expertise-odoo" element={<ExpertisePage />} />
-          <Route path="/accompagnement" element={<JourneyPage />} />
-          <Route path="/vos-enjeux" element={<NeedsPage />} />
+          <Route path="/plateforme" element={<PlatformPage />} />
+          <Route path="/tarifs" element={<PricingPage />} />
           <Route path="/a-propos" element={<AboutPage />} />
+          <Route path="/expertise-odoo" element={<Navigate to="/plateforme" replace />} />
+          <Route path="/accompagnement" element={<Navigate to="/plateforme" replace />} />
+          <Route path="/vos-enjeux" element={<Navigate to="/tarifs#trouver" replace />} />
           <Route path="/contact" element={<ContactPage />} />
           <Route path="/confidentialite" element={<PrivacyPage />} />
           <Route path="*" element={<NotFoundPage />} />

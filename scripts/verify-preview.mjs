@@ -39,7 +39,7 @@ try {
     const page = await context.newPage();
     await page.goto(url, { waitUntil: 'load' });
     const h1 = (await page.locator('h1').first().innerText()).replace(/\s+/g, ' ').trim();
-    assert(h1.includes('Odoo, à la mesure'), `h1 inattendu : ${h1}`);
+    assert(h1.includes('Commencez à gérer Odoo'), `h1 inattendu : ${h1}`);
     // Lazy images only load when near the viewport: force eager loading via DOM is impossible without JS,
     // so check the data URIs decode: scroll through the page to trigger loading.
     for (let y = 0; y <= 20000; y += 800) { await page.mouse.wheel(0, 800); await page.waitForTimeout(30); }
@@ -61,36 +61,40 @@ try {
   await page.goto(url, { waitUntil: 'load' });
 
   await check('(b1) h1 de l’accueil avec JavaScript', async () => {
-    await page.waitForFunction(() => document.querySelector('h1')?.textContent?.replace(/\s+/g, ' ').includes('Odoo, à la mesure'));
+    await page.waitForFunction(() => document.querySelector('h1')?.textContent?.replace(/\s+/g, ' ').includes('Commencez à gérer Odoo'));
   });
   const h1 = async () => (await page.locator('h1').first().innerText()).replace(/\s+/g, ' ').trim();
   const nav = page.getByRole('navigation', { name: 'Navigation principale' });
 
-  await check('(b2) navigation #/vos-enjeux par le menu', async () => {
-    const before = await h1();
-    await nav.getByRole('link', { name: 'Vos enjeux' }).click();
-    await page.waitForFunction((b) => document.querySelector('h1')?.textContent?.replace(/\s+/g, ' ').trim() !== b, before);
-    assert(page.url().includes('#/vos-enjeux'), `URL : ${page.url()}`);
-    return await h1();
+  await check('(b2) navigation #/tarifs par le menu', async () => {
+    await nav.getByRole('link', { name: 'Tarifs' }).click();
+    await page.waitForFunction(() => document.querySelector('h1')?.textContent?.includes('Commencez gratuitement'), null, { timeout: 5000 }).catch(() => {});
+    assert(page.url().includes('#/tarifs'), `URL : ${page.url()}`);
+    assert((await h1()).includes('Commencez gratuitement'), `h1 : ${await h1()}`);
   });
 
   await check('(b3) navigation #/contact par le menu', async () => {
-    const before = await h1();
-    await page.locator('.header-cta').click();
-    await page.waitForFunction((b) => document.querySelector('h1')?.textContent?.replace(/\s+/g, ' ').trim() !== b, before);
+    await nav.getByRole('link', { name: 'Contact' }).click();
+    await page.waitForFunction(() => document.querySelector('h1')?.textContent?.includes('Votre compte Ozania.io'), null, { timeout: 5000 }).catch(() => {});
     assert(page.url().includes('#/contact'), `URL : ${page.url()}`);
-    assert((await h1()).includes('Votre projet Odoo'), `h1 : ${await h1()}`);
+    assert((await h1()).includes('Votre compte Ozania.io'), `h1 : ${await h1()}`);
   });
 
-  await check('(b4) sélecteur vers contact : « Applications envisagées »', async () => {
-    await nav.getByRole('link', { name: 'Vos enjeux' }).click();
-    await page.waitForFunction(() => location.hash.startsWith('#/vos-enjeux'));
-    const selecteur = page.locator('#selecteur');
-    await selecteur.waitFor();
-    await selecteur.getByRole('button', { name: /Connaître le stock réel/ }).click();
-    await selecteur.getByRole('link', { name: 'Préparer ma demande avec ce périmètre' }).click();
+  await check('(b4) sélecteur de plan vers contact : « Que souhaitez-vous ? », Integrator coché', async () => {
+    await nav.getByRole('link', { name: 'Tarifs' }).click();
+    await page.waitForFunction(() => location.hash.startsWith('#/tarifs'));
+    const finder = page.locator('#trouver');
+    await finder.waitFor();
+    await finder.locator('label.finder-option').filter({ has: page.locator('strong', { hasText: /^Mes clients$/ }) }).click();
+    await finder.locator('label.finder-option').filter({ has: page.locator('strong', { hasText: /^Hébergement géré Ozania$/ }) }).click();
+    assert((await finder.locator('.finder-plan-name strong').innerText()).trim() === 'Integrator', 'plan conseillé != Integrator');
+    await finder.locator('.finder-actions a.button-primary').click();
     await page.waitForFunction(() => location.hash.startsWith('#/contact'));
-    await page.getByText('Applications envisagées').first().waitFor({ timeout: 5000 });
+    await page.getByRole('heading', { name: 'Que souhaitez-vous ?' }).waitFor({ timeout: 5000 });
+    const topic = page.locator('label.topic').filter({ has: page.locator('strong', { hasText: /^Integrator$/ }) }).locator('input');
+    assert(await topic.isChecked(), 'Integrator non coché');
+    const host = page.locator('label.radio', { hasText: 'Hébergement géré Ozania' }).locator('input');
+    assert(await host.isChecked(), 'hébergement géré non coché');
   });
 
   await check('(b5) aucune erreur console', async () => {

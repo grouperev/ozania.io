@@ -14,7 +14,7 @@ const SHOTS = path.join(ROOT, '.shots', 'qa');
 rmSync(SHOTS, { recursive: true, force: true });
 mkdirSync(SHOTS, { recursive: true });
 
-const ROUTES = ['/', '/expertise-odoo', '/accompagnement', '/vos-enjeux', '/a-propos', '/contact', '/confidentialite', '/une-page-qui-nexiste-pas'];
+const ROUTES = ['/', '/plateforme', '/tarifs', '/a-propos', '/contact', '/confidentialite', '/une-page-qui-nexiste-pas'];
 const slug = (r) => (r === '/' ? 'home' : r.slice(1));
 const DESKTOP = { width: 1440, height: 900 };
 const WIDTHS = [{ width: 1440, height: 900 }, { width: 390, height: 844 }, { width: 320, height: 844 }];
@@ -113,7 +113,20 @@ await check(1, 'Direct route loads (status, h1, title, console, images, network)
     if (store.pageerrors.length) problems.push(`pageerrors: ${store.pageerrors.join(' || ')}`);
     if (badImgs.length) problems.push(`images with naturalWidth=0: ${badImgs.map((i) => i.src.replace(BASE, '')).join(', ')}`);
     if (store.failed.length) problems.push(`failed same-origin requests: ${store.failed.join(', ')}`);
-    if (route === '/une-page-qui-nexiste-pas' && !(h1s[0] || '').includes('périmètre')) problems.push(`404 h1 lacks "périmètre": ${JSON.stringify(h1s)}`);
+    if (route === '/une-page-qui-nexiste-pas' && !(h1s[0] || '').includes('ne répond pas')) problems.push(`404 h1 lacks "ne répond pas": ${JSON.stringify(h1s)}`);
+    if (route === '/') {
+      const hero = await page.evaluate(() => { const i = document.querySelector('.hero-ui img'); return i ? { w: i.naturalWidth, src: i.currentSrc } : null; });
+      if (!hero || !(hero.w > 0)) problems.push(`.hero-ui img missing or not loaded: ${JSON.stringify(hero)}`);
+      if (!/Arrêtez de gérer vos serveurs\.\s*Commencez à gérer Odoo\./.test((h1s[0] || '').replace(/\s+/g, ' '))) problems.push(`home h1: ${JSON.stringify(h1s[0])}`);
+      const pipe = await page.locator('.pipeline .pipe-step').count();
+      if (pipe !== 4) problems.push(`.pipeline .pipe-step count=${pipe}, expected 4`);
+    }
+    if (route === '/plateforme') {
+      const shots = await page.evaluate(() => [...document.querySelectorAll('figure.shot img')].map((i) => ({ src: new URL(i.currentSrc || i.src).pathname, w: i.naturalWidth })));
+      if (!shots.length) problems.push('no figure.shot img');
+      shots.filter((x) => !x.src.startsWith('/images/ui/') || !(x.w > 0)).forEach((x) => problems.push(`figure.shot img not a loaded /images/ui/ asset: ${JSON.stringify(x)}`));
+      c.note(`/plateforme: ${shots.length} console screenshots`);
+    }
     titles.set(route, title);
     extra.titles[route] = title;
     problems.forEach((p) => c.assert(false, `${route}: ${p}`));
@@ -139,9 +152,15 @@ await check(2, 'No horizontal overflow at 1440 / 390 / 320', async (c) => {
       if (bad) {
         const off = await page.evaluate(() => {
           const out = [];
+          // Skip boxes clipped by a scrolling/hidden ancestor (e.g. a table inside an overflow-x:auto wrapper); absolutely positioned boxes can escape that clip, so keep them.
+          const clipped = (el) => {
+            if (getComputedStyle(el).position === 'absolute' || getComputedStyle(el).position === 'fixed') return false;
+            for (let n = el.parentElement; n && n !== document.body; n = n.parentElement) if (getComputedStyle(n).overflowX !== 'visible') return true;
+            return false;
+          };
           document.querySelectorAll('body *').forEach((el) => {
             const r = el.getBoundingClientRect();
-            if (r.width && r.right > window.innerWidth + 1) out.push({ tag: el.tagName.toLowerCase(), cls: String(el.className?.baseVal ?? el.className).slice(0, 60), right: Math.round(r.right), w: Math.round(r.width) });
+            if (r.width && r.right > window.innerWidth + 1 && !clipped(el)) out.push({ tag: el.tagName.toLowerCase(), cls: String(el.className?.baseVal ?? el.className).slice(0, 60), right: Math.round(r.right), w: Math.round(r.width), parent: String(el.parentElement?.tagName || '').toLowerCase() + '.' + String(el.parentElement?.className || '').slice(0, 30) });
           });
           return out.sort((a, b) => b.right - a.right).slice(0, 5);
         });
@@ -239,7 +258,7 @@ await check(6, 'Mobile nav (390): open, Escape returns focus, link navigates and
   await page.waitForSelector('dialog[open]', { timeout: 3000 });
   c.assert((await page.locator('dialog[open]').count()) === 1, 'expected exactly one dialog[open]');
   const links = await page.locator('dialog[open] a').count();
-  c.assert(links >= 4, `menu dialog has ${links} links`);
+  c.assert(links >= 5, `menu dialog has ${links} links`);
   await page.keyboard.press('Escape');
   await sleep(400);
   c.assert((await page.locator('dialog[open]').count()) === 0, 'dialog still open after Escape');
@@ -248,10 +267,10 @@ await check(6, 'Mobile nav (390): open, Escape returns focus, link navigates and
   await toggle.click();
   await page.waitForSelector('dialog[open]', { timeout: 3000 });
   await sleep(300);
-  await page.locator('dialog[open] a', { hasText: 'Vos enjeux' }).click();
-  await page.waitForURL(/\/vos-enjeux$/, { timeout: 5000 }).catch(() => {});
+  await page.locator('dialog[open] a', { hasText: 'Tarifs' }).click();
+  await page.waitForURL(/\/tarifs$/, { timeout: 5000 }).catch(() => {});
   await sleep(500);
-  c.assert(new URL(page.url()).pathname === '/vos-enjeux', `URL after link click: ${page.url()}`);
+  c.assert(new URL(page.url()).pathname === '/tarifs', `URL after link click: ${page.url()}`);
   c.assert((await page.locator('dialog[open]').count()) === 0, 'dialog still open after navigating');
   await ctx.close();
 });
@@ -262,22 +281,22 @@ await check(7, 'Browser history back/forward via header nav', async (c) => {
   const page = await ctx.newPage();
   await openPage(page, '/', 500);
   const nav = page.getByRole('navigation', { name: 'Navigation principale' });
-  await nav.getByRole('link', { name: 'Expertise Odoo' }).click();
-  await page.waitForURL(/\/expertise-odoo$/);
-  await nav.getByRole('link', { name: 'Accompagnement' }).click();
-  await page.waitForURL(/\/accompagnement$/);
+  await nav.getByRole('link', { name: 'La plateforme' }).click();
+  await page.waitForURL(/\/plateforme$/);
+  await nav.getByRole('link', { name: 'Tarifs' }).click();
+  await page.waitForURL(/\/tarifs$/);
   await page.goBack();
-  await page.waitForURL(/\/expertise-odoo$/, { timeout: 5000 }).catch(() => {});
+  await page.waitForURL(/\/plateforme$/, { timeout: 5000 }).catch(() => {});
   await sleep(500);
-  c.assert(new URL(page.url()).pathname === '/expertise-odoo', `after back URL=${page.url()}`);
+  c.assert(new URL(page.url()).pathname === '/plateforme', `after back URL=${page.url()}`);
   const h1 = await page.locator('h1:visible').allInnerTexts();
-  c.assert(h1.length === 1 && /Intégrer Odoo/.test(h1[0]), `h1 after back: ${JSON.stringify(h1)}`);
+  c.assert(h1.length === 1 && /Une couche de contrôle/.test(h1[0]), `h1 after back: ${JSON.stringify(h1)}`);
   await page.goForward();
-  await page.waitForURL(/\/accompagnement$/, { timeout: 5000 }).catch(() => {});
+  await page.waitForURL(/\/tarifs$/, { timeout: 5000 }).catch(() => {});
   await sleep(400);
-  c.assert(new URL(page.url()).pathname === '/accompagnement', `after forward URL=${page.url()}`);
+  c.assert(new URL(page.url()).pathname === '/tarifs', `after forward URL=${page.url()}`);
   const h1b = await page.locator('h1:visible').allInnerTexts();
-  c.assert(h1b.length === 1 && /Un projet Odoo/.test(h1b[0]), `h1 after forward: ${JSON.stringify(h1b)}`);
+  c.assert(h1b.length === 1 && /Commencez gratuitement/.test(h1b[0]), `h1 after forward: ${JSON.stringify(h1b)}`);
   await ctx.close();
 });
 
@@ -291,10 +310,12 @@ await check(8, 'Search dialog (open, focus, results, empty state, suggestion, Es
   await sleep(300);
   const focusType = await page.evaluate(() => { const e = document.activeElement; return e ? `${e.tagName.toLowerCase()}[type=${e.getAttribute('type')}]` : 'none'; });
   c.assert(focusType === 'input[type=search]', `focus after open: ${focusType}`);
-  await page.keyboard.type('stock', { delay: 30 });
+  const ph = await page.locator('dialog[open] input[type=search]').getAttribute('placeholder');
+  c.assert(/Sauvegardes/.test(ph || ''), `search placeholder lacks "Sauvegardes": ${JSON.stringify(ph)}`);
+  await page.keyboard.type('staging', { delay: 30 });
   await sleep(250);
   const n = await page.locator('dialog[open] .search-results a').count();
-  c.assert(n >= 1, `no result links for "stock" (${n})`);
+  c.assert(n >= 1, `no result links for "staging" (${n})`);
   await page.locator('dialog[open] input[type=search]').fill('zzzqqq');
   await sleep(250);
   const empty = page.locator('dialog[open] .search-empty h2');
@@ -320,50 +341,133 @@ await check(8, 'Search dialog (open, focus, results, empty state, suggestion, Es
 });
 
 // ------------------------------------------------------------------ 9
-await check(9, 'Signature selector + carry scope to /contact', async (c) => {
+await check(9, 'Redirects of old routes (/expertise-odoo, /accompagnement -> /plateforme; /vos-enjeux -> /tarifs#trouver)', async (c) => {
   const ctx = await newCtx(browser);
   const page = await ctx.newPage();
-  await openPage(page, '/vos-enjeux', 700);
-  const sel = page.locator('#selecteur');
-  const btn = (label) => sel.locator('button.need', { has: page.locator('strong', { hasText: label }) });
-  await btn('Connaître le stock réel').click();
-  await btn('Organiser les achats fournisseurs').click();
-  await sleep(500);
-  c.assert((await btn('Connaître le stock réel').getAttribute('aria-pressed')) === 'true', 'stock button not aria-pressed=true');
-  c.assert((await btn('Organiser les achats fournisseurs').getAttribute('aria-pressed')) === 'true', 'achats button not aria-pressed=true');
-  const on = await sel.locator('.flow-node.on').count();
-  c.assert(on >= 2, `.flow-node.on count=${on}`);
-  const summary = await sel.locator('.summary-counts').innerText();
-  c.assert(/2 besoins/.test(summary), `summary text: ${JSON.stringify(summary)}`);
-  const lines = await sel.locator('path.flow-line').count();
-  c.assert(lines >= 1, `path.flow-line count=${lines} at 1440 (summary: ${summary.replace(/\s+/g, ' ')})`);
-  await sel.getByRole('link', { name: 'Préparer ma demande avec ce périmètre' }).click();
-  await page.waitForURL(/\/contact\?besoins=/, { timeout: 5000 }).catch(() => {});
-  await sleep(600);
-  const u = new URL(page.url());
-  const ids = (u.searchParams.get('besoins') || '').split(',');
-  c.assert(u.pathname === '/contact' && ids.includes('stock') && ids.includes('achats'), `URL after click: ${page.url()}`);
-  for (const [id, label] of [['stock', 'Connaître le stock réel'], ['achats', 'Organiser les achats fournisseurs']]) {
-    const checked = await page.locator('label.chip', { hasText: label }).locator('input').isChecked();
-    c.assert(checked, `contact checkbox "${label}" not checked`);
+  for (const [from, path_, hash] of [['/expertise-odoo', '/plateforme', ''], ['/accompagnement', '/plateforme', ''], ['/vos-enjeux', '/tarifs', '#trouver']]) {
+    await openPage(page, from, 700);
+    const u = new URL(page.url());
+    c.assert(u.pathname === path_ && u.hash === hash, `${from} -> ${u.pathname}${u.hash}, expected ${path_}${hash}`);
+    const h1 = await page.locator('h1:visible').allInnerTexts();
+    c.assert(h1.length === 1, `${from}: visible h1 count=${h1.length}`);
   }
-  c.assert(await page.getByText('Applications envisagées', { exact: true }).first().isVisible(), '"Applications envisagées" not visible on contact');
   await ctx.close();
 });
 
-// ------------------------------------------------------------------ 10
-await check(10, 'Contact form validation, draft result, download, copy, no storage', async (c) => {
+// ------------------------------------------------------------------ finder helpers
+const finderOption = (page, label) => page.locator('#trouver label.finder-option').filter({ has: page.locator('strong', { hasText: new RegExp(`^${label}$`) }) });
+const planName = (page) => page.locator('#trouver .finder-plan-name strong').innerText();
+const envState = (page) => page.locator('#trouver .finder-envs .env').evaluateAll((els) => els.map((e) => ({ text: e.textContent.replace(/\s*:\s*(non )?inclus/, '').trim(), on: e.classList.contains('on') })));
+
+await check(10, 'Plan finder on /tarifs (Integrator+gere, Discovery, Solo/Integrator switch, keyboard radios)', async (c) => {
+  const ctx = await newCtx(browser);
+  const page = await ctx.newPage();
+  await openPage(page, '/tarifs', 600);
+  await page.locator('#trouver').scrollIntoViewIfNeeded();
+  await finderOption(page, 'Mes clients').click();
+  await finderOption(page, 'Hébergement géré Ozania').click();
+  await sleep(500);
+  c.assert((await planName(page)).trim() === 'Integrator', `plan for Mes clients: ${await planName(page).catch(() => '?')}`);
+  const href = await page.locator('#trouver .finder-actions a.button-primary').getAttribute('href');
+  c.assert(href === '/contact?offre=integrator&hebergement=gere', `finder link href: ${href}`);
+  let envs = await envState(page);
+  c.assert(envs.length === 3 && envs.every((e) => e.on), `env chips for Integrator: ${JSON.stringify(envs)}`);
+  c.assert((await page.locator('#trouver .env.on').count()) === 3, '.env.on count != 3 for Integrator');
+
+  await finderOption(page, 'Tester un projet').click();
+  await sleep(500);
+  c.assert((await planName(page)).trim() === 'Discovery', `plan for Tester un projet: ${await planName(page).catch(() => '?')}`);
+  envs = await envState(page);
+  const prod = envs.find((e) => /Production/.test(e.text));
+  c.assert(prod && !prod.on, `Production chip should be off for Discovery: ${JSON.stringify(envs)}`);
+  c.assert(envs.filter((e) => e.on).length === 2, `Discovery should have 2 chips on: ${JSON.stringify(envs)}`);
+
+  await finderOption(page, 'Mon entreprise').click();
+  const sw = page.locator('#trouver input[role=switch]');
+  const swLabel = page.locator('#trouver label.finder-switch');
+  await swLabel.click();
+  await sleep(400);
+  c.assert(await sw.isChecked(), 'switch not checked after click');
+  c.assert((await planName(page)).trim() === 'Integrator', `Mon entreprise + switch on: ${await planName(page).catch(() => '?')}`);
+  await swLabel.click();
+  await sleep(400);
+  c.assert(!(await sw.isChecked()), 'switch still checked after second click');
+  c.assert((await planName(page)).trim() === 'Solo', `Mon entreprise + switch off: ${await planName(page).catch(() => '?')}`);
+  await finderOption(page, 'Mes clients, sous ma marque').click();
+  await sleep(400);
+  c.assert((await planName(page)).trim() === 'Agency', `Mes clients sous ma marque: ${await planName(page).catch(() => '?')}`);
+
+  // Keyboard: fresh page, focus first audience radio, ArrowDown selects the next one.
+  await openPage(page, '/tarifs', 600);
+  const radios = page.locator('#trouver .finder-question').first().locator('input[type=radio]');
+  c.assert((await radios.count()) === 4, `audience radios=${await radios.count()}`);
+  await radios.first().focus();
+  await page.keyboard.press('ArrowDown');
+  await sleep(300);
+  const checkedIdx = await radios.evaluateAll((els) => els.findIndex((e) => e.checked));
+  const focusIdx = await radios.evaluateAll((els) => els.indexOf(document.activeElement));
+  c.assert(checkedIdx === 1 && focusIdx === 1, `ArrowDown from radio 0: checked=${checkedIdx} focused=${focusIdx}`);
+  c.assert((await planName(page).catch(() => '')).trim() === 'Solo', `plan after ArrowDown (Mon entreprise): ${await planName(page).catch(() => '?')}`);
+  await page.keyboard.press('ArrowDown');
+  await sleep(300);
+  c.assert((await radios.evaluateAll((els) => els.findIndex((e) => e.checked))) === 2, 'second ArrowDown did not select radio 2');
+  // The switch is operable with Space.
+  await page.locator('#trouver input[role=switch]').focus();
+  await page.keyboard.press('Space');
+  await sleep(300);
+  c.assert(await page.locator('#trouver input[role=switch]').isChecked(), 'Space did not toggle the switch');
+  // Compact finder on the home page.
+  await openPage(page, '/', 600);
+  const homeOpt = page.locator('#quel-plan label.finder-option').filter({ has: page.locator('strong', { hasText: /^Mes clients$/ }) });
+  await homeOpt.scrollIntoViewIfNeeded();
+  await homeOpt.click();
+  await sleep(400);
+  c.assert((await page.locator('#quel-plan .finder-plan-name strong').innerText()).trim() === 'Integrator', 'home #quel-plan: Mes clients does not give Integrator');
+  await ctx.close();
+});
+
+// ------------------------------------------------------------------ 11
+await check(11, 'Finder -> /contact carry (Integrator topic + managed hosting preselected)', async (c) => {
+  const ctx = await newCtx(browser);
+  const page = await ctx.newPage();
+  await openPage(page, '/tarifs', 600);
+  await finderOption(page, 'Mes clients').click();
+  await finderOption(page, 'Hébergement géré Ozania').click();
+  await sleep(400);
+  await page.locator('#trouver .finder-actions a.button-primary').click();
+  await page.waitForURL(/\/contact\?/, { timeout: 5000 }).catch(() => {});
+  await sleep(600);
+  const u = new URL(page.url());
+  c.assert(u.pathname === '/contact' && u.searchParams.get('offre') === 'integrator' && u.searchParams.get('hebergement') === 'gere', `URL after click: ${page.url()}`);
+  c.assert(await page.getByRole('heading', { name: 'Que souhaitez-vous ?' }).isVisible(), 'step-1 heading "Que souhaitez-vous ?" not visible');
+  const topic = page.locator('label.topic').filter({ has: page.locator('strong', { hasText: /^Integrator$/ }) }).locator('input');
+  c.assert(await topic.isChecked(), 'Integrator topic not checked');
+  const host = page.locator('label.radio', { hasText: 'Hébergement géré Ozania' }).locator('input');
+  c.assert(await host.isChecked(), 'hosting "Hébergement géré Ozania" not checked');
+  c.assert((await page.locator('label.topic input[type=radio]').count()) === 5, `topic radios=${await page.locator('label.topic input[type=radio]').count()}, expected 5 (4 plans + question)`);
+  // Direct deep link preselects too.
+  await openPage(page, '/contact?offre=solo&hebergement=vps', 500);
+  c.assert(await page.locator('label.topic').filter({ has: page.locator('strong', { hasText: /^Solo$/ }) }).locator('input').isChecked(), '?offre=solo: Solo not checked');
+  c.assert(await page.locator('label.radio', { hasText: 'Mon VPS ou serveur dédié' }).locator('input').isChecked(), '?hebergement=vps: VPS not checked');
+  await ctx.close();
+});
+
+// ------------------------------------------------------------------ 12
+await check(12, 'Contact: intro, validation, full flow, download, copy, mailto, no storage/cookies', async (c) => {
   const ctx = await newCtx(browser, { permissions: ['clipboard-read', 'clipboard-write'], acceptDownloads: true });
   await ctx.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: BASE });
   const page = await ctx.newPage();
   await openPage(page, '/contact', 600);
-  c.note(`default: "Le périmètre reste à définir" pre-checked = ${await page.locator('label.chip-wide input').isChecked()} (so Continuer with nothing chosen advances without an alert)`);
-  await page.locator('label.chip-wide').click(); // uncheck the pre-checked "to define together" option
+  const intro = await page.locator('.contact-intro').innerText();
+  c.assert(intro.includes('contact@ozania.com'), 'contact@ozania.com not shown in intro');
+  c.assert(intro.includes('+90 552 360 0708'), '+90 552 360 0708 not shown in intro');
+  c.assert((await page.locator('label.topic input:checked').count()) === 0, 'a topic is pre-checked on bare /contact');
   await page.getByRole('button', { name: 'Continuer' }).click();
   const alert = page.locator('#step-error');
   await alert.waitFor({ timeout: 3000 }).catch(() => {});
-  c.assert(/Choisissez au moins un besoin/.test((await alert.innerText().catch(() => '')) || ''), 'step-1 alert "Choisissez au moins un besoin" missing');
-  await page.locator('label.chip', { hasText: 'Connaître le stock réel' }).click();
+  c.assert(/Choisissez un plan/.test((await alert.innerText().catch(() => '')) || ''), 'step-1 alert "Choisissez un plan" missing');
+  await page.locator('label.topic').filter({ has: page.locator('strong', { hasText: /^Solo$/ }) }).click();
+  await page.locator('label.radio', { hasText: 'Mon VPS ou serveur dédié' }).click();
   await page.getByRole('button', { name: 'Continuer' }).click();
   await page.getByRole('heading', { name: 'Faisons connaissance.' }).waitFor({ timeout: 3000 }).catch(() => c.assert(false, 'step-2 heading "Faisons connaissance." missing'));
   await page.getByRole('button', { name: 'Relire ma demande' }).click();
@@ -381,7 +485,7 @@ await check(10, 'Contact form validation, draft result, download, copy, no stora
   await page.fill('#field-name', 'Test Personne');
   await page.fill('#field-company', 'Entreprise Test');
   await page.fill('#field-email', 'test@exemple.fr');
-  await page.fill('#field-message', 'Nous voulons connaître notre stock réel et fiabiliser les achats fournisseurs.');
+  await page.fill('#field-message', 'Nous gérons plusieurs instances Odoo et voulons automatiser le staging et les sauvegardes.');
   await page.locator('#field-consent').check({ force: true });
   await page.getByRole('button', { name: 'Relire ma demande' }).click();
   await page.getByRole('heading', { name: 'Relisez votre demande.' }).waitFor({ timeout: 3000 }).catch(() => c.assert(false, 'step-3 heading "Relisez votre demande." missing'));
@@ -393,9 +497,11 @@ await check(10, 'Contact form validation, draft result, download, copy, no stora
   const bodyText = await page.evaluate(() => document.body.innerText);
   c.assert(!bodyText.includes('a bien été envoyée'), 'page claims "a bien été envoyée"');
   const preview = await page.locator('.result-preview textarea').inputValue().catch(() => '');
-  c.assert(preview.includes('test@exemple.fr'), 'textarea preview lacks email');
+  c.assert(preview.includes('test@exemple.fr') && /Plan : Solo/.test(preview), 'textarea preview lacks email or "Plan : Solo"');
+  const mailto = await page.getByRole('link', { name: 'Ouvrir dans ma messagerie' }).getAttribute('href').catch(() => null);
+  c.assert(!!mailto && mailto.startsWith('mailto:contact@ozania.com'), `mailto href: ${mailto && mailto.slice(0, 80)}`);
   const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 5000 }).catch(() => null), page.getByRole('button', { name: 'Télécharger (.txt)' }).click()]);
-  c.assert(!!dl && dl.suggestedFilename().endsWith('.txt'), `download event: ${dl ? dl.suggestedFilename() : 'none'}`);
+  c.assert(!!dl && dl.suggestedFilename() === 'demande-ozania-io.txt', `download event: ${dl ? dl.suggestedFilename() : 'none'}`);
   await page.getByRole('button', { name: /Copier le message/ }).click();
   await sleep(500);
   const copiedLabel = await page.locator('.result-actions button').first().innerText();
@@ -407,59 +513,71 @@ await check(10, 'Contact form validation, draft result, download, copy, no stora
     const dump = (s) => Object.keys(s).map((k) => k + '=' + s.getItem(k));
     return { local: dump(localStorage), session: dump(sessionStorage), cookie: document.cookie };
   });
-  const leak = [...stor.local, ...stor.session].filter((x) => x.includes('test@exemple.fr'));
-  c.assert(!leak.length, `storage leaks email: ${JSON.stringify(leak)}`);
+  const leak = [...stor.local, ...stor.session].filter((x) => x.includes('test@exemple.fr') || x.includes('Test Personne'));
+  c.assert(!leak.length, `storage leaks personal data: ${JSON.stringify(leak)}`);
   c.assert(stor.cookie === '', `document.cookie not empty: ${JSON.stringify(stor.cookie)}`);
+  c.assert((await ctx.cookies()).length === 0, `context cookies: ${JSON.stringify((await ctx.cookies()).map((x) => x.name))}`);
   c.note(`localStorage keys=${stor.local.length} sessionStorage keys=${stor.session.length}`);
   await ctx.close();
 });
 
-// ------------------------------------------------------------------ 11
-await check(11, 'Tabs keyboard (journey + sector) and deep link', async (c) => {
+// ------------------------------------------------------------------ 13
+await check(13, 'Pricing page: 4 plan cards, comparison table 5 header columns, 17 FAQ details', async (c) => {
   const ctx = await newCtx(browser);
   const page = await ctx.newPage();
-  await openPage(page, '/accompagnement', 600);
-  const tabs = page.locator('.journey-tabs [role=tab]');
-  const count = await tabs.count();
-  const state = () => page.evaluate(() => {
-    const t = [...document.querySelectorAll('.journey-tabs [role=tab]')];
-    return { sel: t.findIndex((x) => x.getAttribute('aria-selected') === 'true'), foc: t.indexOf(document.activeElement) };
-  });
-  await tabs.first().focus();
-  await page.keyboard.press('ArrowRight'); await sleep(200);
-  let s = await state();
-  c.assert(s.sel === 1 && s.foc === 1, `ArrowRight: selected=${s.sel} focused=${s.foc}`);
-  await page.keyboard.press('End'); await sleep(200);
-  s = await state();
-  c.assert(s.sel === count - 1 && s.foc === count - 1, `End: selected=${s.sel} focused=${s.foc} (count ${count})`);
-  await page.keyboard.press('Home'); await sleep(200);
-  s = await state();
-  c.assert(s.sel === 0 && s.foc === 0, `Home: selected=${s.sel} focused=${s.foc}`);
-  await openPage(page, '/accompagnement?etape=demarrer', 700);
-  s = await state();
-  c.assert(s.sel === 3, `?etape=demarrer selected index=${s.sel}, expected 3`);
-
-  await openPage(page, '/vos-enjeux', 700);
-  const st = page.locator('.sector-tabs [role=tab]');
-  await st.first().focus();
-  await page.keyboard.press('ArrowRight'); await sleep(300);
-  const sstate = await page.evaluate(() => { const t = [...document.querySelectorAll('.sector-tabs [role=tab]')]; return { sel: t.findIndex((x) => x.getAttribute('aria-selected') === 'true'), foc: t.indexOf(document.activeElement) }; });
-  c.assert(sstate.sel === 1 && sstate.foc === 1, `sector ArrowRight: ${JSON.stringify(sstate)}`);
-  const labels = await page.locator('.sector-needs li').allInnerTexts();
-  await page.getByRole('button', { name: 'Charger cet exemple dans le sélecteur' }).click();
-  await sleep(700);
-  const pressed = await page.evaluate((ls) => ls.map((l) => {
-    const b = [...document.querySelectorAll('#selecteur button.need')].find((x) => x.querySelector('strong')?.textContent.trim() === l.trim());
-    return [l, b ? b.getAttribute('aria-pressed') : 'MISSING'];
-  }), labels);
-  c.assert(labels.length > 0 && pressed.every(([, v]) => v === 'true'), `needs pressed after load: ${JSON.stringify(pressed)}`);
-  const total = await page.locator('#selecteur button.need[aria-pressed="true"]').count();
-  c.note(`sector 2 needs=${labels.length}, total pressed=${total}`);
+  await openPage(page, '/tarifs', 600);
+  for (const id of ['discovery', 'solo', 'integrator', 'agency']) c.assert((await page.locator(`#plan-${id}`).count()) === 1, `#plan-${id} missing`);
+  const cols = await page.locator('#comparatif table thead tr').first().locator('th').allInnerTexts();
+  c.assert(cols.length === 5, `table header columns=${cols.length} ${JSON.stringify(cols)}`);
+  const faqCount = await page.locator('#questions details').count();
+  c.assert(faqCount === 17, `#questions details count=${faqCount}, expected 17`);
   await ctx.close();
 });
 
-// ------------------------------------------------------------------ 12
-await check(12, 'FAQ details toggle by click and Enter', async (c) => {
+// ------------------------------------------------------------------ 14
+await check(14, 'Header: "Se connecter" href (not followed) and "Compte gratuit" CTA', async (c) => {
+  const ctx = await newCtx(browser);
+  const page = await ctx.newPage();
+  await openPage(page, '/', 500);
+  const login = page.locator('.header-login');
+  c.assert((await login.getAttribute('href')) === 'https://www.ozania.io/web/login', `Se connecter href: ${await login.getAttribute('href')}`);
+  c.assert(/Se connecter/.test(await login.innerText()), 'link text lacks "Se connecter"');
+  const cta = page.locator('.header-cta');
+  c.assert(/Compte gratuit/.test(await cta.innerText()) && (await cta.getAttribute('href')) === '/contact?offre=discovery', `CTA: ${await cta.innerText()} -> ${await cta.getAttribute('href')}`);
+  const navLabels = await page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('link').allInnerTexts();
+  c.assert(JSON.stringify(navLabels) === JSON.stringify(['La plateforme', 'Tarifs', 'À propos', 'Contact']), `nav labels: ${JSON.stringify(navLabels)}`);
+  await ctx.close();
+});
+
+// ------------------------------------------------------------------ 15
+await check(15, '/plateforme sticky .expertise-nav updates aria-current', async (c) => {
+  const ctx = await newCtx(browser);
+  const page = await ctx.newPage();
+  await openPage(page, '/plateforme', 700);
+  const nav = page.locator('.expertise-nav');
+  c.assert((await nav.count()) === 1, `.expertise-nav count=${await nav.count()}`);
+  const pos = await nav.evaluate((e) => getComputedStyle(e).position);
+  c.assert(pos === 'sticky', `.expertise-nav position=${pos}, expected sticky`);
+  const links = nav.locator('a');
+  const n = await links.count();
+  c.assert(n >= 3, `expertise-nav links=${n}`);
+  const seen = new Set();
+  for (const i of [1, Math.floor(n / 2), n - 1]) {
+    const href = await links.nth(i).getAttribute('href');
+    await links.nth(i).scrollIntoViewIfNeeded();
+    await links.nth(i).click();
+    await page.waitForFunction((h) => document.querySelector(`.expertise-nav a[href="${h}"]`)?.getAttribute('aria-current') === 'true', href, { timeout: 6000 }).catch(() => {});
+    await sleep(300);
+    const cur = await page.evaluate(() => [...document.querySelectorAll('.expertise-nav a[aria-current]')].map((a) => a.getAttribute('href')));
+    c.assert(cur.length === 1 && cur[0] === href, `after click ${href}: aria-current on ${JSON.stringify(cur)}`);
+    seen.add(cur[0]);
+  }
+  c.assert(seen.size >= 2, 'aria-current never changed');
+  await ctx.close();
+});
+
+// ------------------------------------------------------------------ 16
+await check(16, 'FAQ details toggle by click and Enter', async (c) => {
   const ctx = await newCtx(browser);
   const page = await ctx.newPage();
   await openPage(page, '/', 600);
@@ -477,8 +595,8 @@ await check(12, 'FAQ details toggle by click and Enter', async (c) => {
   await ctx.close();
 });
 
-// ------------------------------------------------------------------ 13
-await check(13, 'Reduced motion: hero visible immediately, [data-reveal] opacity 1', async (c) => {
+// ------------------------------------------------------------------ 17
+await check(17, 'Reduced motion: hero visible immediately, [data-reveal] opacity 1', async (c) => {
   const ctx = await newCtx(browser, { reducedMotion: 'reduce' });
   const page = await ctx.newPage();
   await page.goto(url('/'), { waitUntil: 'domcontentloaded' });
@@ -499,8 +617,8 @@ await check(13, 'Reduced motion: hero visible immediately, [data-reveal] opacity
   await ctx.close();
 });
 
-// ------------------------------------------------------------------ 14
-await check(14, 'First paint without reduced motion: h1 visible within 300ms of DCL', async (c) => {
+// ------------------------------------------------------------------ 18
+await check(18, 'First paint without reduced motion: h1 visible within 300ms of DCL', async (c) => {
   for (let run = 0; run < 3; run++) {
     const ctx = await newCtx(browser);
     const page = await ctx.newPage();

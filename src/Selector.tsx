@@ -1,179 +1,119 @@
-import { createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useId, useMemo, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowUpRight, Check, ArrowCounterClockwise } from '@phosphor-icons/react';
-import { apps, lanes, needGroups, needs, scopeFor, type AppId, type NeedId } from './data';
+import { ArrowUpRight, Check } from '@phosphor-icons/react';
+import { audiences, hostings, planById, recommend, type Audience, type Hosting, type PlanId } from './data';
 
-/* Selected needs live in memory only (never in browser storage) and travel to /contact through the URL. */
-type Scope = { selected: NeedId[]; toggle: (id: NeedId) => void; set: (ids: NeedId[]) => void; clear: () => void };
-const ScopeContext = createContext<Scope | null>(null);
+/* The visitor's answers live in memory only and travel to /contact through the URL. */
+type Finder = {
+  audience: Audience | null; hosting: Hosting | null; delegated: boolean;
+  setAudience: (a: Audience) => void; setHosting: (h: Hosting) => void; setDelegated: (d: boolean) => void;
+};
+const FinderContext = createContext<Finder | null>(null);
 
 export function ScopeProvider({ children }: { children: ReactNode }) {
-  const [selected, setSelected] = useState<NeedId[]>([]);
-  const toggle = useCallback((id: NeedId) => setSelected((list) => (list.includes(id) ? list.filter((x) => x !== id) : [...list, id])), []);
-  const set = useCallback((ids: NeedId[]) => setSelected([...new Set(ids)]), []);
-  const clear = useCallback(() => setSelected([]), []);
-  const value = useMemo(() => ({ selected, toggle, set, clear }), [selected, toggle, set, clear]);
-  return <ScopeContext.Provider value={value}>{children}</ScopeContext.Provider>;
+  const [audience, setAudienceState] = useState<Audience | null>(null);
+  const [hosting, setHostingState] = useState<Hosting | null>(null);
+  const [delegated, setDelegatedState] = useState(false);
+  const setAudience = useCallback((a: Audience) => setAudienceState(a), []);
+  const setHosting = useCallback((h: Hosting) => setHostingState(h), []);
+  const setDelegated = useCallback((d: boolean) => setDelegatedState(d), []);
+  const value = useMemo(() => ({ audience, hosting, delegated, setAudience, setHosting, setDelegated }), [audience, hosting, delegated, setAudience, setHosting, setDelegated]);
+  return <FinderContext.Provider value={value}>{children}</FinderContext.Provider>;
 }
-export function useScope() {
-  const scope = useContext(ScopeContext);
-  if (!scope) throw new Error('useScope outside ScopeProvider');
-  return scope;
-}
-export const contactLink = (ids: readonly string[]) => (ids.length ? `/contact?besoins=${ids.join(',')}` : '/contact');
-
-function useReducedMotion() {
-  const [reduced, setReduced] = useState(() => window.matchMedia('(prefers-reduced-motion: reduce)').matches);
-  useEffect(() => {
-    const media = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const update = () => setReduced(media.matches);
-    media.addEventListener('change', update);
-    return () => media.removeEventListener('change', update);
-  }, []);
-  return reduced;
+export function useFinder() {
+  const finder = useContext(FinderContext);
+  if (!finder) throw new Error('useFinder outside ScopeProvider');
+  return finder;
 }
 
-type Path = { key: string; d: string };
+export function contactLink(plan?: PlanId | null, hosting?: Hosting | null) {
+  const params = new URLSearchParams();
+  if (plan) params.set('offre', plan);
+  if (hosting) params.set('hebergement', hosting);
+  const query = params.toString();
+  return query ? `/contact?${query}` : '/contact';
+}
 
-/** Map of Odoo applications in three lanes; active flows are drawn between the nodes. */
-function FlowMap({ active, activeFlows }: { active: Set<AppId>; activeFlows: ReturnType<typeof scopeFor>['flows'] }) {
-  const box = useRef<HTMLDivElement>(null);
-  const nodes = useRef(new Map<AppId, HTMLElement>());
-  const [geometry, setGeometry] = useState<{ w: number; h: number; rects: Map<AppId, DOMRect> } | null>(null);
-  const reduced = useReducedMotion();
-  const titleId = useId();
+const environments = [
+  { id: 'test', label: 'Test' },
+  { id: 'staging', label: 'Staging' },
+  { id: 'production', label: 'Production' },
+] as const;
+const envFor: Record<PlanId, string[]> = { discovery: ['test', 'staging'], solo: ['test', 'staging', 'production'], integrator: ['test', 'staging', 'production'], agency: ['test', 'staging', 'production'] };
 
-  useLayoutEffect(() => {
-    const el = box.current;
-    if (!el) return;
-    const measure = () => {
-      const base = el.getBoundingClientRect();
-      const rects = new Map<AppId, DOMRect>();
-      nodes.current.forEach((node, id) => { const r = node.getBoundingClientRect(); rects.set(id, new DOMRect(r.left - base.left, r.top - base.top, r.width, r.height)); });
-      setGeometry({ w: base.width, h: base.height, rects });
-    };
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(el);
-    document.fonts?.ready.then(measure);
-    return () => observer.disconnect();
-  }, []);
-
-  const paths: Path[] = useMemo(() => {
-    if (!geometry) return [];
-    return activeFlows.flatMap((flow) => {
-      const a = geometry.rects.get(flow.from), b = geometry.rects.get(flow.to);
-      if (!a || !b) return [];
-      const sameLane = Math.abs(a.x - b.x) < 8;
-      if (sameLane) {
-        const x = a.right, y1 = a.y + a.height / 2, y2 = b.y + b.height / 2;
-        const bulge = Math.min(64, 22 + Math.abs(y2 - y1) * 0.25);
-        return [{ key: `${flow.from}-${flow.to}`, d: `M ${x} ${y1} C ${x + bulge} ${y1}, ${x + bulge} ${y2}, ${x} ${y2}` }];
-      }
-      const [left, right] = a.x < b.x ? [a, b] : [b, a];
-      const x1 = left.right, y1 = left.y + left.height / 2, x2 = right.x, y2 = right.y + right.height / 2;
-      const mid = (x1 + x2) / 2;
-      return [{ key: `${flow.from}-${flow.to}`, d: `M ${x1} ${y1} C ${mid} ${y1}, ${mid} ${y2}, ${x2} ${y2}` }];
-    });
-  }, [activeFlows, geometry]);
-
+function Choice<T extends string>({ name, legend, options, value, onChange, columns = 2 }: { name: string; legend: string; options: { id: T; label: string; hint?: string }[]; value: T | null; onChange: (v: T) => void; columns?: number }) {
   return (
-    <div className="flow-map" ref={box}>
-      <svg className="flow-lines" width={geometry?.w || 0} height={geometry?.h || 0} aria-hidden="true" focusable="false">
-        {paths.map((path, index) => (
-          <g key={path.key}>
-            <path d={path.d} className="flow-line" pathLength={1} style={{ animationDelay: `${index * 60}ms` }} />
-            {!reduced && <circle r="3" className="flow-pulse"><animateMotion dur={`${3.6 + (index % 3) * 0.7}s`} repeatCount="indefinite" path={path.d} begin={`${(index % 4) * 0.5}s`} /></circle>}
-          </g>
+    <fieldset className="finder-question">
+      <legend>{legend}</legend>
+      <div className="finder-options" style={{ ['--cols' as string]: columns }}>
+        {options.map((option) => (
+          <label key={option.id} className={`finder-option ${value === option.id ? 'on' : ''}`}>
+            <input type="radio" name={name} value={option.id} checked={value === option.id} onChange={() => onChange(option.id)} />
+            <span className="finder-dot" aria-hidden="true">{value === option.id && <Check size={11} weight="bold" />}</span>
+            <span className="finder-text"><strong>{option.label}</strong>{option.hint && <small>{option.hint}</small>}</span>
+          </label>
         ))}
-      </svg>
-      {lanes.map((lane) => {
-        const laneApps = apps.filter((app) => app.lane === lane.id);
-        return (
-          <div className="flow-lane" key={lane.id}>
-            <p className="flow-lane-title" id={`${titleId}-${lane.id}`}><strong>{lane.label}</strong><span>{lane.hint}</span></p>
-            <ul aria-labelledby={`${titleId}-${lane.id}`}>
-              {laneApps.map((app) => {
-                const on = active.has(app.id);
-                return (
-                  <li key={app.id} ref={(node) => { if (node) nodes.current.set(app.id, node); else nodes.current.delete(app.id); }} className={`flow-node ${on ? 'on' : ''}`}>
-                    <span className="flow-node-name">{app.name}</span>
-                    <span className="sr-only">{on ? ' : incluse dans votre périmètre' : ' : non sélectionnée'}</span>
-                    <span className="flow-node-role">{app.role}</span>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        );
-      })}
-    </div>
+      </div>
+    </fieldset>
   );
 }
 
-export function NeedSelector({ compact = false, id }: { compact?: boolean; id?: string }) {
-  const { selected, toggle, clear } = useScope();
-  const scope = useMemo(() => scopeFor(selected), [selected]);
-  const active = useMemo(() => new Set(scope.apps.map((app) => app.id)), [scope]);
+/** Signature interaction: three answers, one recommended plan, carried to the contact form. */
+export function PlanFinder({ compact = false, id }: { compact?: boolean; id?: string }) {
+  const { audience, hosting, delegated, setAudience, setHosting, setDelegated } = useFinder();
+  const planId = recommend(audience, delegated);
+  const plan = planId ? planById[planId] : null;
+  const hostingInfo = hostings.find((h) => h.id === hosting);
   const headingId = useId();
-  const summaryId = useId();
-  const limit = compact ? 3 : 6;
-  const rest = scope.flows.length - limit;
+  const name = useId();
+  const active = planId ? envFor[planId] : [];
 
   return (
-    <section className={`selector ${compact ? 'selector-compact' : ''}`} id={id} aria-labelledby={headingId}>
-      <div className="selector-head">
-        <h2 id={headingId}>{compact ? <>Par où commencer ?<br /><span>Choisissez ce qui vous freine.</span></> : <>Le fil de vos opérations.</>}</h2>
-        <p>{compact
-          ? 'Chaque besoin active les applications Odoo concernées et les liaisons qui évitent la ressaisie. Le périmètre obtenu peut accompagner votre demande.'
-          : 'Sélectionnez vos besoins. Les applications Odoo qui y répondent s’allument, et les informations qu’elles se transmettent apparaissent. C’est un point de départ pour la discussion, pas un devis.'}</p>
+    <section className={`finder ${compact ? 'finder-compact' : ''}`} id={id} aria-labelledby={headingId}>
+      <div className="finder-head">
+        <h2 id={headingId}>{compact ? <>Quel plan pour vous ?<br /><span>Trois questions, une réponse.</span></> : <>Trouvez votre plan<br /><span>en trois questions.</span></>}</h2>
+        <p>Vos réponses ne sont enregistrées nulle part. Elles servent à vous orienter, et peuvent accompagner votre demande de compte.</p>
       </div>
 
-      <div className="selector-body">
-        <div className="need-groups" role="group" aria-label="Vos besoins" aria-describedby={summaryId}>
-          {needGroups.map((group) => (
-            <div className="need-group" key={group.id}>
-              <p className="need-group-title">{group.label}</p>
-              <div className="need-list">
-                {needs.filter((need) => need.group === group.id).map((need) => {
-                  const on = selected.includes(need.id);
-                  return (
-                    <button type="button" key={need.id} className={`need ${on ? 'on' : ''}`} aria-pressed={on} onClick={() => toggle(need.id)}>
-                      <span className="need-check" aria-hidden="true">{on && <Check size={13} weight="bold" />}</span>
-                      <span className="need-text"><strong>{need.label}</strong>{!compact && <small>{need.pain}</small>}</span>
-                    </button>
-                  );
-                })}
+      <div className="finder-body">
+        <form className="finder-form" onSubmit={(event) => event.preventDefault()}>
+          <Choice name={`${name}-a`} legend="1. Vous faites tourner Odoo pour…" options={audiences} value={audience} onChange={setAudience} />
+          <Choice name={`${name}-h`} legend="2. Où tournent vos serveurs ?" options={hostings.map((h) => ({ id: h.id, label: h.label }))} value={hosting} onChange={setHosting} />
+          <fieldset className="finder-question">
+            <legend>3. L’équipe informatique d’un client doit-elle intervenir elle-même ?</legend>
+            <label className={`finder-switch ${delegated ? 'on' : ''}`}>
+              <input type="checkbox" role="switch" checked={delegated} onChange={(event) => setDelegated(event.target.checked)} />
+              <span className="switch-track" aria-hidden="true"><span /></span>
+              <span>{delegated ? 'Oui : sauvegardes, redémarrages et journaux en libre-service' : 'Non, mon équipe s’en charge'}</span>
+            </label>
+          </fieldset>
+        </form>
+
+        <div className={`finder-result ${plan ? 'has-plan' : ''}`} aria-live="polite">
+          <div className="console-chrome" aria-hidden="true"><span /><span /><span /><em>console.ozania.io</em></div>
+          <div className="finder-envs" aria-label="Environnements inclus">
+            {environments.map((env, index) => (
+              <span key={env.id} className={`env ${active.includes(env.id) ? 'on' : ''}`} style={{ transitionDelay: `${index * 90}ms` }}>
+                <i aria-hidden="true" />{env.label}
+                <span className="sr-only">{active.includes(env.id) ? ' : inclus' : ' : non inclus'}</span>
+              </span>
+            ))}
+          </div>
+          {plan ? (
+            <div className="finder-plan" key={plan.id}>
+              <p className="finder-plan-name">Plan conseillé <strong>{plan.name}</strong></p>
+              <p className="finder-price">{plan.price}<small>{plan.priceNote}</small></p>
+              <ul className="tick-list">{plan.features.slice(0, compact ? 4 : 7).map((f) => <li key={f}>{f}</li>)}</ul>
+              {hostingInfo && <p className="finder-hosting"><strong>{hostingInfo.label}.</strong> {hostingInfo.detail}</p>}
+              <div className="finder-actions">
+                <Link className="button button-primary" to={contactLink(plan.id, hosting)}><span>{plan.id === 'discovery' ? 'Demander mon compte gratuit' : `Demander le plan ${plan.name}`}</span><ArrowUpRight size={20} aria-hidden="true" /></Link>
+                {compact && <Link className="text-link" to="/tarifs#comparatif"><span>Comparer les plans</span><ArrowUpRight size={18} aria-hidden="true" /></Link>}
               </div>
             </div>
-          ))}
-        </div>
-
-        <div className="selector-stage">
-          <FlowMap active={active} activeFlows={scope.flows} />
-          <div className="selector-summary" id={summaryId}>
-            <div className="summary-counts" aria-live="polite">
-              {selected.length ? (
-                <p><strong>{selected.length}</strong> besoin{selected.length > 1 ? 's' : ''} · <strong>{scope.apps.length}</strong> application{scope.apps.length > 1 ? 's' : ''} · <strong>{scope.flows.length}</strong> liaison{scope.flows.length > 1 ? 's' : ''}</p>
-              ) : (
-                <p>Aucun besoin sélectionné. Choisissez-en un pour voir les applications et leurs liaisons apparaître.</p>
-              )}
-            </div>
-            {scope.flows.length > 0 && (
-              <ul className="summary-flows">
-                {scope.flows.slice(0, limit).map((flow) => <li key={`${flow.from}-${flow.to}`}><span>{apps.find((a) => a.id === flow.from)?.name} → {apps.find((a) => a.id === flow.to)?.name}</span>{flow.label}</li>)}
-                {rest > 0 && <li className="summary-more">et {rest} autre{rest > 1 ? 's' : ''} liaison{rest > 1 ? 's' : ''}</li>}
-              </ul>
-            )}
-            <div className="summary-actions">
-              <Link className="button button-primary" to={contactLink(selected)}>
-                <span>{selected.length ? 'Préparer ma demande avec ce périmètre' : 'Préparer une demande'}</span><ArrowUpRight size={20} aria-hidden="true" />
-              </Link>
-              {selected.length > 0 && <button type="button" className="text-button" onClick={clear}><ArrowCounterClockwise size={16} aria-hidden="true" />Tout effacer</button>}
-              {compact && <Link to="/vos-enjeux#selecteur" className="text-link"><span>Voir le détail par besoin</span><ArrowUpRight size={18} aria-hidden="true" /></Link>}
-            </div>
-            <p className="summary-note">Les liaisons décrites sont des usages courants d’Odoo. Leur mise en œuvre dépend de votre édition et de votre configuration.</p>
-          </div>
+          ) : (
+            <p className="finder-empty">Répondez à la première question pour voir le plan qui vous correspond.</p>
+          )}
+          <p className="finder-note">L’hébergement des serveurs n’est pas inclus dans les plans : apportez le vôtre, ou ajoutez l’hébergement géré Ozania depuis votre tableau de bord.</p>
         </div>
       </div>
     </section>

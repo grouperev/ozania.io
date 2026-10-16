@@ -1,6 +1,6 @@
 # ozania.io
 
-Site vitrine de ozania.io, société du groupe Ozania dédiée à l’intégration d’Odoo pour les entreprises. Site français, responsive, en préversion : l’indexation est désactivée (`noindex, nofollow`) et rien n’est déployé.
+Site vitrine d’Ozania.io, la console DevOps pour Odoo (société du groupe Ozania) : déploiement, staging, sauvegardes, surveillance, bibliothèque de modules, accès délégué et marque blanche. Site français, responsive. L’indexation reste désactivée (`noindex, nofollow`) jusqu’à la validation des mentions légales. Déployé sur le projet Vercel dédié « ozania.io » via la branche `main` de `grouperev/ozania.io`.
 
 ## Stack
 
@@ -22,7 +22,7 @@ npm run test:preview            # vérifie l’aperçu autonome via file://
 
 ## Routes
 
-`/`, `/expertise-odoo`, `/accompagnement`, `/vos-enjeux` (sélecteur de besoins), `/a-propos`, `/contact`, `/confidentialite`. Toute autre adresse affiche la page 404.
+`/`, `/plateforme`, `/tarifs` (plans, assistant de choix, comparatif, FAQ), `/a-propos`, `/contact`, `/confidentialite`. Les anciennes adresses `/expertise-odoo` et `/accompagnement` redirigent vers `/plateforme`, `/vos-enjeux` vers `/tarifs#trouver`. Toute autre adresse affiche la page 404.
 
 ## Formulaire de contact : comportement réel
 
@@ -36,7 +36,7 @@ npm run test:preview            # vérifie l’aperçu autonome via file://
 
 Si l’une manque, la fonction répond 503 `{ delivered: false, reason: 'not-configured' }` et le site retombe sur le brouillon. Il n’existe aucun destinataire par défaut, et le visiteur ne peut choisir ni le destinataire ni l’expéditeur (son e-mail sert uniquement de `reply_to`).
 
-**Le destinataire d’ozania.io n’est pas confirmé.** Tant qu’il ne l’est pas, ne rien renseigner dans `CONTACT_TO_EMAIL` ni `VITE_CONTACT_EMAIL`. Voir `.env.example` (noms et commentaires uniquement, aucune valeur).
+**Destinataire confirmé : contact@ozania.com.** Il est utilisé par défaut pour le bouton « Ouvrir dans ma messagerie » (lien `mailto:`, envoyé par le visiteur lui-même). L’envoi direct n’est pas activé : le site est une vitrine. Pour l’activer plus tard, renseigner `CONTACT_TO_EMAIL`, `CONTACT_FROM_EMAIL`, `RESEND_API_KEY` et `VITE_CONTACT_DELIVERY=api` dans les paramètres Vercel. Voir `.env.example`.
 
 ## Prévisualisation autonome
 
@@ -45,11 +45,11 @@ npm run export:preview
 npm run test:preview
 ```
 
-Produit `exports/ozania-io-preview.html` : un seul fichier avec CSS, JavaScript, polices et images embarqués, sans requête réseau. Ouvrez-le directement dans un navigateur (`file://`). La navigation utilise le routage par hash (`#/vos-enjeux`, `#/contact`…) grâce à `<meta name="oz-preview" content="standalone">`. Une copie statique de l’accueil est incluse : un lecteur qui bloque les scripts voit donc la page, pas un écran vide. Le formulaire y reste en mode brouillon.
+Produit `exports/ozania-io-preview.html` : un seul fichier avec CSS, JavaScript, polices et images embarqués, sans requête réseau. Ouvrez-le directement dans un navigateur (`file://`). La navigation utilise le routage par hash (`#/tarifs`, `#/contact`…) grâce à `<meta name="oz-preview" content="standalone">`. Une copie statique de l’accueil est incluse : un lecteur qui bloque les scripts voit donc la page, pas un écran vide. Le formulaire y reste en mode brouillon.
 
 ## Déploiement
 
-Rien n’a été déployé. Tout déploiement doit passer par un projet de préversion dédié à ozania.io et confirmé, jamais par le projet Vercel de la société mère ni par une production.
+Le projet Vercel « ozania.io » (équipe revolution-group) est relié au dépôt `grouperev/ozania.io` : chaque poussée sur `main` déclenche un déploiement, visible sur https://ozaniaio.vercel.app. Ne jamais utiliser le projet Vercel de la société mère (`grouperev/Ozania`). Le statut d’un déploiement se lit sur le commit GitHub (contexte « Vercel »).
 
 ## Documents associés
 
