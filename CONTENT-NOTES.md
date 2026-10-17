@@ -59,6 +59,13 @@ All photographs are generated illustrations, not staff, and are captioned "Visue
 
 Magnific generations used `team-collaboration.webp` (style) and `team-training.webp` (image) as references. One client-call render was rejected for banding and dithering in the backlit window (`assets/originals/rejected-client-call-banding.png`, ignored by git). The photos from the first version that did not fit a digital product (paper workshop, stockroom, parcel bench) were removed from the site.
 
+## Version 3 additions (2026-10-17)
+
+- The deploy log on the home page is labelled "Illustration du flux": its lines restate the four pipeline steps, backups and monitoring already listed above. It does not depict a real CLI.
+- Bento detail chips repeat words from each feature's own text (for example "provisionnement, correctifs, sécurité" for managed hosting; "sauvegardes, redémarrages, journaux" for delegated access). The `ssh root@votre-serveur` line illustrates "Conservez un accès SSH complet".
+- The stack matrix groups the provider and tool names already used (logo wall) plus the Odoo versions 17 to 20, Community and Enterprise, from the FAQ. The grouping labels are ours; no deeper integration is claimed.
+- The monitoring meter has no figures: it only names the four metrics the console tracks.
+
 ## Copy conventions
 
 - Visible text uses no em or en dashes.

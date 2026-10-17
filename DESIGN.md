@@ -1,5 +1,29 @@
 # DESIGN · Ozania.io
 
+## Version 3 (2026-10-17): dark mode, DevOps voice, motion
+
+Audience is technical (integrators, DevOps and IT leads), so the site now reads like a tool: dark ground, mono labels, a deploy log, glowing actions and live status lights.
+
+| Token | Value | Use | Contrast |
+| --- | --- | --- | --- |
+| Ground | `#0d0912` | Page | |
+| Surface / strong / card | `#17101f` / `#241a2f` / `#1b1325` | Panels, cards | |
+| Ink | `#f1ecf6` | Body text | ≥ 14.3:1 on every surface |
+| Muted | `#bdb2c8` | Supporting copy | ≥ 8.2:1 |
+| Accent text | `#d2b4f7` | Headings, links, active | ≥ 9.2:1 |
+| Accent soft | `#b195d4` | Second heading line, labels | ≥ 6.4:1 |
+| Accent fill | `#6a2cb0` (gradient to `#7a38c6`) | Primary actions, highlighted plan | white text 8.1:1 |
+| Control line | `#7d6c90` | Input and control boundaries | ≥ 3.5:1 |
+| LED | `#4fd69a` | Live status | 9:1, always paired with text |
+| Mono | JetBrains Mono (bundled) | Eyebrows (`// …`), labels, terminal, tool chips | |
+
+New home sections (in `src/devops.tsx`): **deploy log** terminal beside the pipeline lanes (illustration of the four real steps, typed in line by line), **feature bento** with all nine capabilities (real screenshots on wide cards, mono detail chips taken from each feature's copy, a monitoring meter), **stack matrix** grouping every provider and tool (cloud and servers, code, runtime, observability, Odoo versions and editions) with status lights that switch on in sequence. It replaces the former feature index.
+
+Glow: primary buttons (inner highlight plus violet bloom, stronger on hover), focus ring halo, active nav link, selected options, pipeline nodes as they light, status LEDs, terminal markers, bento card gradient border on hover. Glow is decorative only; all text meets contrast without it.
+
+Motion (`src/motion.ts`, GSAP, all reverted per route and skipped under reduced motion): headings rise out of a clip mask; photos open from an inset frame while scrolling; cards arrive in staggered batches; the hero photo opens and the console window lands with a slight 3D tilt, then follows the pointer; pointer spotlight on cards; magnetic primary actions; a glowing packet travels the pipeline rail; CSS-only scroll progress bar under the header; drifting hero glow and grid; provider marquee (pauses on hover/focus); closing-band sheen. Pointer effects only on fine pointers. Transform, opacity and clip-path only; no scroll-jacking.
+
+
 ## Brief
 
 Ozania.io, a company in the Ozania group, sells a **DevOps console for Odoo**: deploy, validate (staging) and orchestrate every Odoo environment from one interface, on the customer's cloud, their VPS, or Ozania-managed servers. Visitors are Odoo integrators, small agencies and companies running their own Odoo without a DevOps team. They should understand within seconds what the console does, see how it fits their infrastructure, pick a plan, and request an account. Facts come from the company PDF and www.ozania.io (see CONTENT-NOTES.md).

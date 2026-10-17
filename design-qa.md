@@ -1,5 +1,21 @@
 # Design QA · Ozania.io
 
+## Version 3 (2026-10-17): dark mode and DevOps layer
+
+Same harness against the production build (`vite preview`, Chromium headless shell 1234).
+
+- `scripts/verify.mjs`: **18 / 18 PASS** (`.shots/verify-v3.log`), axe-core wcag2a/aa + 21a/aa **0 violations on all 7 routes**, no overflow at 1440 / 390 / 320, reduced motion shows everything at once, h1 visible within 300 ms.
+- `scripts/verify-preview.mjs`: 7 / 7 PASS, standalone export 2.63 MB.
+- `scripts/shoot-sections.mjs` (new): section screenshots after motion settles, `.shots/v3/` at 1440 and 390, inspected by eye.
+- Contrast computed per token pair (see DESIGN.md table): body text ≥ 8:1 (AAA), accent fill with white 8.1:1, control boundaries ≥ 3.5:1.
+
+Issues found and fixed during v3: blank lines between terminal entries (literal newlines inside block lines); the pointer spotlight erased gradient backgrounds on the highlighted plan and bento cards (layered); empty space in single-column bento cards (detail chips from each feature's copy); on phones the terminal command wrapped under its prompt.
+
+Not covered: Safari and Firefox rendering of `animation-timeline` (the progress bar simply stays hidden where unsupported), real touch devices, GPU cost of blurred glows on low-end phones (one glow layer is dropped below 760px).
+
+---
+
+
 ## Version 2 (2026-10-16): DevOps console content
 
 The site was re-scoped from an "Odoo integration consultancy" (v1, wrong) to the real product: the Ozania.io DevOps console for Odoo. Results below are from real Chromium renders of the production build (`vite build` + `vite preview` at http://localhost:4181), with `scripts/verify.mjs` (Playwright 1.64, Chromium headless shell 1234) and manual inspection in the desktop browser pane at 1440, 390 and 320px.
