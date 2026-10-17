@@ -7,7 +7,6 @@ import { Header, Footer } from './components';
 import { ScopeProvider } from './Selector';
 import { HomePage, PlatformPage, PricingPage, AboutPage, PrivacyPage, NotFoundPage } from './pages';
 import ContactPage from './ContactPage';
-import { pointerMotion, routeMotion } from './motion';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -69,9 +68,6 @@ function Site() {
     };
   }, []);
 
-  // Pointer spotlight, magnetic actions and hero tilt (fine pointers, motion allowed).
-  useEffect(() => pointerMotion(), []);
-
   // Titles, scroll restoration and focus on route change.
   useEffect(() => {
     const [name, description] = meta[location.pathname] || ['Page introuvable', 'Cette page n’existe pas ou a été déplacée.'];
@@ -104,7 +100,6 @@ function Site() {
       gsap.utils.toArray<HTMLElement>('[data-parallax]', root).forEach((node) => {
         gsap.fromTo(node, { yPercent: -4 }, { yPercent: 4, ease: 'none', scrollTrigger: { trigger: node.parentElement, start: 'top bottom', end: 'bottom top', scrub: true } });
       });
-      routeMotion(root, initial.current);
       // Calm route entrance, only after the first paint so the first hero is never hidden.
       if (!initial.current) {
         const first = root.firstElementChild;

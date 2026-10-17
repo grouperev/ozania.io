@@ -4,7 +4,6 @@ import gsap from 'gsap';
 import { ArrowUpRight, Check, MagnifyingGlass, Minus } from '@phosphor-icons/react';
 import { Action, Closing, Faq, Figure, PageHero, TextLink } from './components';
 import { PlanFinder, contactLink } from './Selector';
-import { DeployLog, FeatureBento, StackMatrix } from './devops';
 import { benefits, company, comparison, deployOptions, faqs, features, homeFaqs, pipeline, plans, problems, providers, stack } from './data';
 
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -57,13 +56,41 @@ function Pipeline() {
             </li>
           ))}
         </ol>
-        <div className="pipe-bottom">
-          <div className="pipe-lanes" aria-label="En continu sur chaque instance">
-            <p><span aria-hidden="true" />Sauvegardes automatiques et redondantes</p>
-            <p><span aria-hidden="true" />Surveillance de la disponibilité, du processeur, de la mémoire et du disque</p>
-            <p><span aria-hidden="true" />Accès SSH complet conservé sur vos propres serveurs</p>
-          </div>
-          <DeployLog />
+        <div className="pipe-lanes" aria-label="En continu sur chaque instance">
+          <p><span aria-hidden="true" />Sauvegardes automatiques et redondantes</p>
+          <p><span aria-hidden="true" />Surveillance de la disponibilité, du processeur, de la mémoire et du disque</p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/** Feature index: the visual follows the hovered or focused row. */
+function FeatureIndex() {
+  const picks = features.filter((f) => ['deploiement', 'sauvegardes', 'surveillance', 'modules', 'acces', 'marque'].includes(f.id));
+  const [active, setActive] = useState(0);
+  return (
+    <section className="service-index">
+      <div className="service-index-head" data-reveal>
+        <h2>Une console<br /><span>pour chaque client Odoo que vous gérez.</span></h2>
+        <p>Vous restez maître de l’infrastructure. Ozania.io gère tout ce qui se trouve au-dessus.</p>
+      </div>
+      <div className="service-index-body">
+        <ol className="service-rows">
+          {picks.map((feature, index) => (
+            <li key={feature.id}>
+              <Link to={`/plateforme#${feature.id}`} className={active === index ? 'is-active' : ''} onMouseEnter={() => setActive(index)} onFocus={() => setActive(index)}>
+                <span className="row-number">{feature.group}</span>
+                <span className="row-title">{feature.title}</span>
+                <span className="row-lead">{feature.lead}</span>
+                <ArrowUpRight size={22} aria-hidden="true" />
+              </Link>
+            </li>
+          ))}
+        </ol>
+        <div className="service-visual" aria-hidden="true">
+          {picks.map((feature, index) => <img key={feature.id} src={feature.image} alt="" loading="lazy" className={`${active === index ? 'is-active' : ''} ${feature.kind === 'ui' ? 'is-ui' : ''}`} />)}
+          <p className="service-visual-caption">{picks[active].kind === 'ui' ? 'Capture de la console' : 'Visuel d’illustration'}</p>
         </div>
       </div>
     </section>
@@ -74,7 +101,6 @@ export function HomePage() {
   return (
     <>
       <section className="home-hero">
-        <div className="hero-aurora" aria-hidden="true"><i /><i /><i /></div>
         <div className="hero-top"><p className="eyebrow">La console DevOps pour Odoo</p><p className="hero-aside">Odoo 17 à 20 · Community et Enterprise</p></div>
         <h1>Arrêtez de gérer vos serveurs.<br /><span>Commencez à gérer Odoo.</span></h1>
         <div className="hero-actions">
@@ -98,10 +124,7 @@ export function HomePage() {
 
       <section className="infra" aria-label="Infrastructures et outils compatibles">
         <p>Vos fournisseurs, votre infrastructure</p>
-        <div className="infra-marquee">
-          <ul className="infra-providers">{providers.map((p) => <li key={p}>{p}</li>)}</ul>
-          <ul className="infra-providers" aria-hidden="true">{providers.map((p) => <li key={p}>{p}</li>)}</ul>
-        </div>
+        <ul className="infra-providers">{providers.map((p) => <li key={p}>{p}</li>)}</ul>
         <ul className="infra-stack">{stack.map((s) => <li key={s}>{s}</li>)}</ul>
       </section>
 
@@ -123,8 +146,7 @@ export function HomePage() {
         </ol>
       </section>
 
-      <FeatureBento />
-      <StackMatrix />
+      <FeatureIndex />
 
       <section className="why">
         <Figure src="/images/team-release.webp" alt="Illustration : une équipe d’intégrateurs suit sur un écran mural le passage d’une mise à jour du staging à la production." ratio="21 / 9" position="center 55%" parallax className="why-photo" caption="Visuel d’illustration" />

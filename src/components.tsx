@@ -149,7 +149,6 @@ export function Header() {
           <Action className="header-cta" to="/contact?offre=discovery">Compte gratuit</Action>
           <button type="button" className="icon-button mobile-menu-toggle" aria-label="Ouvrir le menu" aria-haspopup="dialog" aria-expanded={menu} onClick={() => setMenu(true)}><List size={25} aria-hidden="true" /></button>
         </div>
-        <span className="scroll-progress" aria-hidden="true" />
       </header>
       <Modal open={menu} close={() => setMenu(false)} title="Menu" className="menu-modal">
         <nav aria-label="Navigation mobile">
